@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.hl7.fhir.instance.model.api.IBaseResource;
+import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Resource;
 import org.junit.After;
 import org.junit.Assert;
@@ -130,6 +131,11 @@ public class OAuthHelperTest {
 		@Override
 		public FhirResponse<List<IBaseResource>> queryServer(String resourceQuery, QueryBuilder builder) {
 			return new FhirResponse<List<IBaseResource>>(new ArrayList<IBaseResource>(), 200, "OK");
+		}
+		
+		@Override
+		public FhirResponse<IBaseResource> queryPage(QueryBuilder arg0) {
+			return new FhirResponse<IBaseResource>(new Bundle(), 200, "OK");
 		}
 
 		public String getToken() throws Exception {

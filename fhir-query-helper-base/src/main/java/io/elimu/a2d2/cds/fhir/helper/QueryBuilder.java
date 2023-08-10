@@ -2,6 +2,7 @@ package io.elimu.a2d2.cds.fhir.helper;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 public class QueryBuilder {
 
@@ -13,6 +14,8 @@ public class QueryBuilder {
 	private boolean useCache = true;
 	private int retries = Integer.valueOf(System.getProperty("http.invoke.retries", "3"));
 	private int delay = Integer.valueOf(System.getProperty("http.invoke.retrydelay", "1000"));
+	private String pageId;
+	private int offset;
 	
 	public QueryBuilder withRetries(int retries) {
 		this.retries = retries;
@@ -66,6 +69,28 @@ public class QueryBuilder {
 		return this;
 	}
 	
+	public QueryBuilder pageId(String pageId) {
+		this.pageId = pageId;
+		return this;
+	}
+
+	public QueryBuilder offset(int offset) {
+		this.offset = offset;
+		return this;
+	}
+	
+	public String getPageId() {
+		return pageId;
+	}
+	
+	public int getPageSize() {
+		return count;
+	}
+	
+	public int getOffset() {
+		return offset;
+	}
+	
 	public boolean hasPaging() {
 		return paging;
 	}
@@ -84,8 +109,26 @@ public class QueryBuilder {
 	
 	public String buildQuery(String baseUrl) {
 		StringBuilder sb = new StringBuilder();
+		if (this.pageId != null) {
+			sb.append(baseUrl).append("?_getpages=").append(this.pageId);
+			if (this.offset >= 0) {
+				sb.append("&_getpagesoffset=").append(offset);
+			}
+			appendCount(sb);
+			sb.append("&_bundletype=searchset");
+		}
 		sb.append(baseUrl).append('/').append(resourceType);
 		sb.append('?');
+		appendCount(sb);
+		for (String key : params.keySet()) {
+			if (!"_count".equals(key)) {
+				sb.append('&').append(key).append('=').append(params.get(key));
+			}
+		}
+		return sb.toString();
+	}
+
+	private void appendCount(StringBuilder sb) {
 		if (count > 0 || params.containsKey("_count")) {
 			if (count > 0) {
 				sb.append("_count").append('=').append(count);
@@ -95,27 +138,11 @@ public class QueryBuilder {
 		} else {
 			sb.append("_count").append('=').append(50);
 		}
-		for (String key : params.keySet()) {
-			if (!"_count".equals(key)) {
-				sb.append('&').append(key).append('=').append(params.get(key));
-			}
-		}
-		return sb.toString();
 	}
 
 	@Override
 	public int hashCode() {
-		final int prime = 31;
-		int result = 1;
-		result = prime * result + count;
-		result = prime * result + delay;
-		result = prime * result + ((id == null) ? 0 : id.hashCode());
-		result = prime * result + (paging ? 1231 : 1237);
-		result = prime * result + ((params == null) ? 0 : params.hashCode());
-		result = prime * result + ((resourceType == null) ? 0 : resourceType.hashCode());
-		result = prime * result + retries;
-		result = prime * result + (useCache ? 1231 : 1237);
-		return result;
+		return Objects.hash(count, delay, id, paging, params, resourceType, retries, useCache, pageId, offset);
 	}
 
 	@Override
@@ -127,31 +154,10 @@ public class QueryBuilder {
 		if (getClass() != obj.getClass())
 			return false;
 		QueryBuilder other = (QueryBuilder) obj;
-		if (count != other.count)
-			return false;
-		if (delay != other.delay)
-			return false;
-		if (id == null) {
-			if (other.id != null)
-				return false;
-		} else if (!id.equals(other.id))
-			return false;
-		if (paging != other.paging)
-			return false;
-		if (params == null) {
-			if (other.params != null)
-				return false;
-		} else if (!params.equals(other.params))
-			return false;
-		if (resourceType == null) {
-			if (other.resourceType != null)
-				return false;
-		} else if (!resourceType.equals(other.resourceType))
-			return false;
-		if (retries != other.retries)
-			return false;
-		if (useCache != other.useCache)
-			return false;
-		return true;
+		return Objects.equals(count, other.count) && Objects.equals(delay, other.delay) &&
+				Objects.equals(id, other.id) && Objects.equals(paging, other.paging) &&
+				Objects.equals(params, other.params) && Objects.equals(resourceType, other.resourceType) &&
+				Objects.equals(retries, other.retries) && Objects.equals(useCache, other.useCache) &&
+				Objects.equals(pageId, other.pageId) && Objects.equals(offset, other.offset);
 	}
 }

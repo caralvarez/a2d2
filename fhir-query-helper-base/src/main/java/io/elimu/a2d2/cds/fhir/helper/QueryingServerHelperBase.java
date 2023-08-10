@@ -529,7 +529,44 @@ public abstract class QueryingServerHelperBase<T, U extends IBaseResource> imple
 		}
 		return new FhirResponse<>(new ArrayList<>(), -1, "not invoked due to internal error");
 	}
-	
+
+	public FhirResponse<IBaseResource> queryDirectBundle(QueryBuilder builder) {
+		try {
+			if(!builder.useCache()) {
+				avoidCache.set(Boolean.TRUE);
+			}
+			PerformanceHelper.getInstance().beginClock(QUERYINGSERVERHELPER, "queryResources");
+			String resourceQuery = builder.buildQuery(fhirUrl);
+			if (resourceQuery == null) {
+				return null;
+			}
+			FhirResponse<IBaseResource> retval = null;
+			String cacheKey = CacheUtil.getCacheKey(resourceQuery, interceptors);
+
+			if (!avoidCache.get().booleanValue() && cacheService != null && cacheService.containsKey(cacheKey)) {
+				FhirResponse<List<IBaseResource>> cache = (FhirResponse<List<IBaseResource>>) cacheService.get(cacheKey).getValue();
+				retval = new FhirResponse<>(cache.getResult().size() == 1 ? cache.getResult().get(0) : null, cache.getResponseStatusCode(), cache.getResponseStatusInfo());
+			} else {
+				if (ctx.getVersion().getVersion().equals(fhirVersion)) {
+					retval = queryPage(builder);
+				}
+				if (!avoidCache.get().booleanValue() && cacheService != null && retval != null
+						&& CacheUtil.isValidState(retval.getResponseStatusCode())) {
+					cacheService.put(cacheKey, new ResponseEvent<>(new FhirResponse<>(Arrays.asList(retval), retval.getResponseStatusCode(), retval.getResponseStatusInfo()), RESPONSE_EVENT_TIMEOUT));
+				}
+			}
+			return retval;
+		} catch (Exception e) {
+			log.error( ERROR_MSG + e.getMessage() + ". [" + e.getClass().getName() + "]");
+		} finally {
+			PerformanceHelper.getInstance().endClock(QUERYINGSERVERHELPER, "queryResources");
+			if (!builder.useCache()) {
+				avoidCache.set(Boolean.FALSE);
+			}
+		}
+		return new FhirResponse<>(null, -1, "not invoked due to internal error");
+	}
+
 	/**
 	 * Returns a list of Resources from a specific filtering query.
 	 * The return type is a {@link FhirResponse} wrapper for the HTTP response. Will contain a result and a response code.
@@ -626,6 +663,12 @@ public abstract class QueryingServerHelperBase<T, U extends IBaseResource> imple
 	}
 
 	public abstract FhirResponse<List<IBaseResource>> queryServer(String resourceQuery, QueryBuilder builder);
+	
+	/*
+	 * Specific method to call when you want to bring just one page
+	 * returns Bundle entity 
+	 */
+	public abstract FhirResponse<IBaseResource> queryPage(QueryBuilder builder);
 
 	public abstract FhirResponse<IBaseResource> fetchServer(final String resourceType, String resourceQuery);
 	

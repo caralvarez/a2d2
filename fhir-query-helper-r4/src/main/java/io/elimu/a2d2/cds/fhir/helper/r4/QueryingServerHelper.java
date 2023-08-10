@@ -133,6 +133,23 @@ public class QueryingServerHelper extends QueryingServerHelperBase<QueryingServe
 		return resourceBundle;
 	}
 	
+	@Override
+	public FhirResponse<IBaseResource> queryPage(QueryBuilder builder) {
+		FhirClientWrapper client = clients.next();
+		FhirResponse<IBaseResource> bundle = null;
+		log.debug("Fetching page of {} resources using client for version {} ", client.getFhirContext().getVersion().getVersion().name(),
+				client.getFhirContext().getVersion().getVersion().name());
+		bundle = runWithInterceptors(new QueryingCallback<IBaseResource>() {
+			@Override
+			public IBaseResource execute(FhirClientWrapper client) {
+				String resourceQuery = builder.buildQuery(getFhirUrl());
+				log.debug("Invoking url {}", resourceQuery);
+				return new FetchCallRetry<Bundle>(builder, b -> client.fetchResourceFromUrl(Bundle.class, resourceQuery)).retryRestCall(client);
+			}
+		}, client);
+		return bundle;
+	}
+	
 	public static enum FhirVersion implements FhirVersionAbs {
 		
 		FHIR4(FhirContext.forR4());
